@@ -1,0 +1,141 @@
+Expect functionality for bash.
+
+expect.sh is a bash linkage to expect, providing functions to start arbitrary CLI programs in the
+background, send strings to their standard input, and inspect their standard output for various
+patterns.
+
+Add "source path/to/expect.sh" at the top of your script to define the following:
+
+-------------------------------
+
+exp_spawn [options] [--] path/to/program [args...]
+
+    Start the specified program in background and store the process "handle" string in the
+    $exp_spawnid variable.  Multiple processes can be spawned at once, if you keep track of their
+    spawnid's.
+
+    Options:
+
+        -n N    :  Size of the longest anticipated match in bytes, default is 10,000. Setting this
+        very large values can significantly slow pattern matching.
+
+        --      :  End of options, required if the program's name starts with "-".
+
+-------------------------------
+
+exp_close [options]
+
+    Terminate a spawned program.
+
+    Return true on success, or false on invalid spawnid or similar error. Closing the current
+    $exp_spawnid causes it to be reset to "tty".
+
+    Spawned processes are closed automatically when the script exits, so this is really only
+    necessary for scripts with long lifetimes.
+
+    Options:
+
+        -i spawnid  : spawnid to close, instead of $exp_spawnid.
+
+-------------------------------
+
+exp_send [options] [--] [string]
+
+    Send the specified string to a spawned program's stdin. Character escapes such as "\n", "\xNN",
+    "\uNNNN" etc, are converted to the actual characters.
+
+    If no string is specified, read stdin into memory and send it verbatim. Note very large stdin
+    should be avoided.
+
+    These statements are equivalent:
+
+        send "line one\nline two\n"
+
+    and:
+
+        send <<EOT
+line one
+line two
+EOT
+
+    Return true on success, or false on invalid spawnid or similar expect error.
+
+    Options:
+
+        -i spawnid  : spawnid to send to. Default is to send to $exp_spawnid. Specify "tty" to send
+        to the current /dev/tty device (which may or may not be attached to bash stdout).
+
+        --          : End of options, required if the string to be sent starts with "-".
+
+-------------------------------
+
+exp_expect [options] [--] [regex [...regex]]
+
+    Given some number of regular expressions, read the process's output buffer, blocking while
+    empty, until a match is found or a timeout occurs.
+
+    On a match, $exp_index is set to to the 0-based index of the matching regex argument and array
+    element ${exp_match[0]} is set to the matching string. If the regex specifies parenthesized
+    sub-matches, then these are assigned to ${exp_match[1]} and so on.
+
+    If multiple regexes match on the same final character, the one with the lowest index "wins".
+
+    The matching text is removed from the buffer, leaving the remainder for the next exp_expect.
+
+    If no regexes are specified, the default is ".+" which matches the entire buffer but blocks if
+    the buffer is currently empty.
+
+    Return true on success, or false on error and $exp_index is set to one of:
+
+        -1 : Timeout, no match occurred within the specified time. The buffer is not altered.
+
+        -2 : EOF, the spawned process has terminated. Once EOF is reported the spawnid becomes
+        invalid and subsequent use will cause an expect error.
+
+        -3 : invalid spawnid or similar expect error.
+
+    tcl regex syntax is supported, see https://www.tcl.tk/man/tcl8.6/TclCmd/re_syntax.html for more
+    information. By default, ^ and $ match the beginning and end of the buffer and a match can cross
+    multiple lines. Notably, if the regex starts with "(?n)" then it is constrained to discrete
+    lines and works more like grep.
+
+    Options:
+
+        -i spawnid  : spawnid to read, instead of $exp_spawnid. Specify "tty" to read from the
+        current /dev/tty device (which may or may not be attached to bash stdin).
+
+        -t N        : seconds to wait for a match, default 2. If 0 just return whatever was
+        currently in the buffer, if anything ("exp_expect -t0" is used idiomatically to clear the
+        buffer).
+
+        --          : End of options, required if the first regex starts with "-".
+
+-------------------------------
+
+exp_internal [on]
+
+    If "on" is specified, output send/match debug information to stderr, which can be used to figure
+    out why regexes aren't matching. Any other argument disables the output.
+
+-------------------------------
+
+exp_log [on|filename]
+
+    If "on" is specified, output the verbatim send/match dialog text to stderr. Any other string is
+    considered to be a filenmame, and the text is appended the the file. Without an argument,
+    logging is disabled.
+
+-------------------------------
+
+Each of these functions correlates to an expect function of the same name, although with very
+different syntax. The expect man page may provide more detailed information.
+
+All functions return false for a functional error such as an closed spawnid, and in some cases there
+may be an explanatory message on stderr. Procedural errors, such as use of an invalid parameter, are
+fatal and force program exit with status 127. This will also happen if the expect coprocess
+terminates for some reason.
+
+Several private functions and variables are defined, their names all start with "_exp_".
+
+expect.sh and related files in http://github.com/glitchub/expect.sh are released by the author into
+the public domain.
