@@ -8,11 +8,11 @@ Add "source path/to/expect.sh" at the top of your script to define the following
 
 -------------------------------
 
-exp_spawn [options] [--] path/to/program [args...]
+exp_spawn [options] [--] program [args...]
 
-    Start the specified program in background and store the process "handle" string in the
-    $exp_spawnid variable.  Multiple processes can be spawned at once, if you keep track of their
-    spawnid's.
+    Start the specified program in background and store its "handle" string in the $exp_spawnid
+    variable.  Multiple programs can be spawned and interacted with at once, if you keep track of
+    their spawnids.
 
     Options:
 
@@ -30,7 +30,7 @@ exp_close [options]
     Return true on success, or false on invalid spawnid or similar error. Closing the current
     $exp_spawnid causes it to be reset to "tty".
 
-    Spawned processes are closed automatically when the script exits, so this is really only
+    Spawned programs are closed automatically when the script exits, so this is really only
     necessary for scripts with long lifetimes.
 
     Options:
@@ -49,11 +49,11 @@ exp_send [options] [--] [string]
 
     These statements are equivalent:
 
-        send "line one\nline two\n"
+        exp_send "line one\nline two\n"
 
     and:
 
-        send <<EOT
+        exp_send <<EOT
 line one
 line two
 EOT
@@ -71,32 +71,32 @@ EOT
 
 exp_expect [options] [--] [regex [...regex]]
 
-    Given some number of regular expressions, read the process's output buffer, blocking while
+    Given some number of regular expressions, read a spawned program's output buffer, blocking while
     empty, until a match is found or a timeout occurs.
 
     On a match, $exp_index is set to to the 0-based index of the matching regex argument and array
-    element ${exp_match[0]} is set to the matching string. If the regex specifies parenthesized
-    sub-matches, then these are assigned to ${exp_match[1]} and so on.
+    element ${exp_match[0]} is set to the matching string. If the regex defines parenthesized
+    sub-matches, then these are assigned in order to to ${exp_match[1]}, ${exp_match[2]}, and so on.
 
     If multiple regexes match on the same final character, the one with the lowest index "wins".
 
     The matching text is removed from the buffer, leaving the remainder for the next exp_expect.
 
-    If no regexes are specified, the default is ".+" which matches the entire buffer but blocks if
-    the buffer is currently empty.
+    If no regexes are specified, the default is ".+" which matches the entire buffer, or waits for
+    the buffer to contain something.
 
     Return true on success, or false on error and $exp_index is set to one of:
 
         -1 : Timeout, no match occurred within the specified time. The buffer is not altered.
 
-        -2 : EOF, the spawned process has terminated. Once EOF is reported the spawnid becomes
-        invalid and subsequent use will cause an expect error.
+        -2 : EOF, the spawned program has terminated. Once EOF is reported the spawnid becomes
+        invalid and subsequent use will cause an error.
 
         -3 : invalid spawnid or similar expect error.
 
     tcl regex syntax is supported, see https://www.tcl.tk/man/tcl8.6/TclCmd/re_syntax.html for more
-    information. By default, ^ and $ match the beginning and end of the buffer and a match can cross
-    multiple lines. Notably, if the regex starts with "(?n)" then it is constrained to discrete
+    information. By default, ^ and $ match the beginning and end of the buffer and a match may cross
+    multiple lines but notably if the regex starts with "(?n)" then it is constrained to discrete
     lines and works more like grep.
 
     Options:
@@ -114,16 +114,17 @@ exp_expect [options] [--] [regex [...regex]]
 
 exp_internal [on]
 
-    If "on" is specified, output send/match debug information to stderr, which can be used to figure
-    out why regexes aren't matching. Any other argument disables the output.
+    If "on" is specified, output lots of send/match debug information to stderr, which can be used
+    to figure out why regexes aren't matching. Any other argument disables the output.
 
 -------------------------------
 
 exp_log [on|filename]
 
-    If "on" is specified, output the verbatim send/match dialog text to stderr. Any other string is
-    considered to be a filenmame, and the text is appended the the file. Without an argument,
-    logging is disabled.
+    If "on" is specified, echo the send/match dialog to stderr. Any other string is considered to be
+    a filename, and the dialog is appended to the file. Without an argument, logging is disabled.
+
+    Return true on success, false if file can't be opened.
 
 -------------------------------
 
