@@ -144,6 +144,17 @@ exp_internal [on]
 
 -------------------------------
 
+exp_log [options] [on|file]
+
+    If "on" is specified, print output of spawned processes seen by exp_expect to stderr. If a
+    file is specified, print to the file instead. If no argument, logging is disabled.
+
+    Options:
+
+        -a          : append existing file (if a file is specified()
+
+-------------------------------
+
 Each of these functions correlates to an expect function of the same name, although with very
 different syntax. The expect man page may provide more detailed information.
 

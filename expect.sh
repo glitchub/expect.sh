@@ -5,10 +5,10 @@
 
 # Released by the author into the public domain, do whatever you want with it.
 
-_exp_die() { echo "${FUNCNAME[1]}@${BASH_LINENO[0]}: $*" >&2; exit 1; }
+_exp_die() { read c0l _ < <(caller); read c1l _ c1f < <(caller 1); printf "%s: line %s: %s (%s)\n" "$c1f" "$c1l" "$*" "$c0l" >&2; exit 1; }
 
-# true if arg is non-zero int
-_exp_is_int() { [[ $* =~ ^[1-9][0-9]*$ ]]; }
+# true if arg is an int
+_exp_is_int() { [[ $* =~ ^(0|[1-9][0-9]*)$ ]]; }
 
 # true if arg is non-zero float
 _exp_is_float() { [[ $* =~ ^(([1-9][0-9]*(\.0*)?)|((0*|[1-9][0-9]*)\.0*[1-9][0-9]*))$ ]]; }
@@ -81,7 +81,7 @@ _exp_start
 exp_spawn() {
     local opt OPTIND size=1000 args
     while getopts ":n:" opt; do case $opt in
-        n) size=$OPTARG; _exp_is_int $size || _exp_die "invalid size" ;;
+        n) size=$OPTARG; _exp_is_int $size && (($size)) || _exp_die "invalid size" ;;
         *) _exp_die "invalid param" ;;
     esac; done
     shift $((OPTIND-1))
@@ -168,16 +168,17 @@ exp_expect() {
                 set matches [llength [lsearch -all [array names expect_out] *string]]; \
                 out "\$result [checkid \$expect_out(spawn_id)] \$matches" ; \
                 for {set i 0} {\$i < \$matches} {incr i} {out [encode \$expect_out(\$i,string)]}; \
-           } elseif {$\result == -2} { \
-                out "\$result [checkid \$expect_out(spawn_id)]" ; \
-           } else { out \$result } \
+           } elseif {\$result == -2} { \
+                out "\$result [checkid \$expect_out(spawn_id)] 0" ; \
+           } else { out "\$result 0 0" } \
         }] { puts stderr "exp_expect: \$::errorInfo"; out -3 }
 EOT
     exp_match=()
     _exp_read ${timeout}.5 || _exp_die "stalled"
     local matches m
+    # shellcheck disable=SC2034
     read exp_index exp_matchid matches <<<$REPLY
-    ((exp_index < 0)) && return 0
+    ((exp_index < 0)) && return 1
     # slurp specified number of matches
     for ((m = 1; m <= matches; m++)); do
         _exp_read .5 || die "missing match $m of $matches"
@@ -195,6 +196,25 @@ exp_internal() {
     local cmd
     [[ ${1:-} == on ]] && cmd="exp_internal 1" || cmd="exp_internal 0"
     _exp_write "if [catch {$cmd}] {puts stderr \"exp_internal: $::errorInfo\"; out 1} {out 0}"
+    _exp_read || die "stalled"
+    return $REPLY
+}
+
+# exp_log [options] [file|on]
+exp_log() {
+    local OPTIND opt append="-noappend"
+    while getopts ":a" opt; do case $opt in
+        a) append="" ;;
+        *) _exp_die "invalid param" ;;
+    esac; done
+    shift $((OPTIND-1))
+    local cmd="log_file;"
+    case "$*" in
+        on) cmd+="log_file -a -leaveopen stderr" ;;
+        "") ;;
+        *) cmd+="log_file -a $append $*" ;;
+    esac
+    _exp_write "if [catch {$cmd}] {puts stderr \"exp_log: $::errorInfo\"; out 1} {out 0}"
     _exp_read || die "stalled"
     return $REPLY
 }

@@ -20,7 +20,7 @@ exp_expect "Password:" "ftp>"
 exp_send "$pass\n"
 exp_expect "530 Login incorrect" "ftp>"
 (($exp_index)) || die "Login failed"
-exp_expect -t0
+exp_expect -t0 # flush buffer
 
 if [[ $dir ]]; then
     exp_send "cd \"$dir\"\n"
