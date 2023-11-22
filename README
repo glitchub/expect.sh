@@ -62,8 +62,15 @@ EOT
 
     Options:
 
+        -b string   : the string is base64-encoded, decode and send to the spawned program.
+        Required for binary data or important whitespace that bash can't handle directly (pipe
+        through "base64 -w0" to generate).
+
+        -d seconds  : delay specified seconds between each character, typically used with a small
+        decimal such as "-d 0.05".
+
         -i spawnid  : spawnid to send to. Default is to send to $exp_spawnid. Specify "tty" to send
-        to the current /dev/tty device (which may or may not be attached to bash stdout).
+        to the current /dev/tty device monitorch may or may not be attached to bash stdout).
 
         --          : End of options, required if the string to be sent starts with "-".
 
@@ -71,12 +78,22 @@ EOT
 
 exp_expect [options] [--] [regex [...regex]]
 
-    Given some number of regular expressions, read a spawned program's output buffer, blocking while
-    empty, until a match is found or a timeout occurs.
+    Given some number of regular expressions, monitor one or more spawned program's output buffers
+    until a match is found or a timeout occurs.
 
-    On a match, $exp_index is set to to the 0-based index of the matching regex argument and array
-    element ${exp_match[0]} is set to the matching string. If the regex defines parenthesized
-    sub-matches, then these are assigned in order to to ${exp_match[1]}, ${exp_match[2]}, and so on.
+    On a match:
+
+        $exp_index is set to to the 0-based index of the matching regex argument
+
+        Array element ${exp_match[0]} is set to the matching string
+
+        Array elements ${exp_match[1]}, ${exp_match[2]}, etc are set the the values of regex
+        sub-matches, if any
+
+        $exp_matchid is set to the spawnid of the spawned program that generated the matching
+        output, if more than one is being monitored
+
+        exp_expect returns 0
 
     If multiple regexes match on the same final character, the one with the lowest index "wins".
 
@@ -85,12 +102,16 @@ exp_expect [options] [--] [regex [...regex]]
     If no regexes are specified, the default is ".+" which matches the entire buffer, or waits for
     the buffer to contain something.
 
+    If the -i option (see below) can be specified multiple times and the output of all associated
+    spawned programs monitored. On a match, $exp_matchid is set to the spawnid from which the
+    matching text was received. In this case $exp_spawnid must be named explicitly to be included.
+
     Return true on success, or false on error and $exp_index is set to one of:
 
         -1 : Timeout, no match occurred within the specified time. The buffer is not altered.
 
-        -2 : EOF, the spawned program has terminated. Once EOF is reported the spawnid becomes
-        invalid and subsequent use will cause an error.
+        -2 : EOF, a spawned program has terminated, its spawnid is stored in $exp_matchid.  The
+        spawnid is thereafter invalid and subsequent use will cause an error.
 
         -3 : invalid spawnid or similar expect error.
 
@@ -101,12 +122,16 @@ exp_expect [options] [--] [regex [...regex]]
 
     Options:
 
-        -i spawnid  : spawnid to read, instead of $exp_spawnid. Specify "tty" to read from the
-        current /dev/tty device (which may or may not be attached to bash stdin).
+        -b          : base64-encode the strings in $exp_match[]. Required for binary data or
+        important whitespace that bash can't handle directly (pass through "base64 -d" to recover).
 
-        -t N        : seconds to wait for a match, default 2. If 0 just return whatever was
-        currently in the buffer, if anything ("exp_expect -t0" is used idiomatically to clear the
-        buffer).
+        -i spawnid  : spawnid to monitor, instead of the default $exp_spawnid. Specify "tty" to
+        monitor the current /dev/tty device (which may or may not be attached to bash stdin). -i can
+        be specified multiple times to monitor multiple programs at once ($exp_spawnid must be named
+        explicitly if it is to be included in this case).
+
+        -t N        : seconds to wait for a match, default 2. If 0 just return whatever is currently
+        in the buffer, if anything (and the buffer is cleared).
 
         --          : End of options, required if the first regex starts with "-".
 
@@ -116,15 +141,6 @@ exp_internal [on]
 
     If "on" is specified, output lots of send/match debug information to stderr, which can be used
     to figure out why regexes aren't matching. Any other argument disables the output.
-
--------------------------------
-
-exp_log [on|filename]
-
-    If "on" is specified, echo the send/match dialog to stderr. Any other string is considered to be
-    a filename, and the dialog is appended to the file. Without an argument, logging is disabled.
-
-    Return true on success, false if file can't be opened.
 
 -------------------------------
 

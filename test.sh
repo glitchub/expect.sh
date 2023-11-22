@@ -25,37 +25,39 @@ Box drawing alignment tests:                                          █
   ╚══╩══╝  └──┴──┘  ╰──┴──╯  ╰──┴──╯  ┗━━┻━━┛           └╌╌┘ ╎ ┗╍╍┛ ┋  ▁▂▃▄▅▆▇█
 EOT
 exp_expect "no match" "[ \t]+[0-9][ \t]+((T.*) ONLY).+(T.*T)" ".+" || die "Expect error $exp_index"
-echo "Got ${#exp_match[*]} matches from regex #$exp_index"
+echo "Got ${#exp_match[*]} matches of regex #$exp_index from $exp_matchid"
 printf -- "---\n%s\n" "${exp_match[@]}"
+echo "Got ${#exp_match[*]} matches of regex #$exp_index from $exp_matchid"
 exp_expect "\n([^\n]*┋)" || die "Expect error $exp_index"
-echo "Got ${#exp_match[*]} matches from regex #$exp_index"
+echo "Got ${#exp_match[*]} matches of regex #$exp_index from $exp_matchid"
 printf -- "---\n%s\n" "${exp_match[@]}"
 exp_internal off
 exp_close
-
-log=
-if [[ $TMPDIR ]]; then log=$TMPDIR/test.sh.log; exp_log $log; fi
 
 exp_spawn bash -c 'echo "This is a test of single '\'' double \" curly { and \$woot! and \t escapes"'
 exp_expect && echo "${exp_match[0]}"
 exp_close
 
-# the default exp_spawnid is tty
+# the default exp_spawnid is now tty
 exp_send "\nAnd your name is? "
 if exp_expect -t10 "(?in)^\s*([a-z])\s*$" "(?in)([a-z]).*([a-z])"; then
-    echo "Got ${#exp_match[*]} matches from regex #$exp_index"
+    echo "Got ${#exp_match[*]} matches of regex #$exp_index from $exp_matchid"
     if (($exp_index)); then
-        exp_send "Hi, ${exp_match[1]^}-mumble-${exp_match[2]}!\n"
+        exp_send -d.05 "Hi, ${exp_match[1]^}-mumble-${exp_match[2]}!\n"
     else
-        exp_send "Hi, ${exp_match[1]^}!\n"
+        exp_send -d.05 "Hi, ${exp_match[1]^}!\n"
     fi
 else
-    exp_send "\nToo slow! ($exp_index)\n"
+    exp_send -d.05 "\nToo slow! ($exp_index)\n"
 fi
 
-if [[ $log ]]; then
-    exp_log
-    echo $log contains:
-    awk '{print "  " $0 }' $log
-    echo >> $log
-fi
+exp_spawn cat -sn
+echo "Send lines to cat -sn, enter BYE when bored..."
+while true; do
+    exp_expect -t60 -b -i tty -i $exp_spawnid "(?n)^BYE$" ".+" || die "exp_expect failed $exp_index"
+    echo "Got ${#exp_match[*]} matches of regex #$exp_index from $exp_matchid: ${exp_match[0]}"
+    (($exp_index)) || break
+    [[ $exp_matchid == tty ]] && sendto=$exp_spawnid || sendto=tty
+    exp_send -b ${exp_match[0]} -i $sendto
+done
+echo Bye!
