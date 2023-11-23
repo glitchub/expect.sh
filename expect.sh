@@ -14,7 +14,11 @@ _exp_is_int() { [[ $* =~ ^(0|[1-9][0-9]*)$ ]]; }
 _exp_is_float() { [[ $* =~ ^(([1-9][0-9]*(\.0*)?)|((0*|[1-9][0-9]*)\.0*[1-9][0-9]*))$ ]]; }
 
 # true if arg is alnum
-_exp_is_alnum() { [[ $* =~ ^[0-9a-z]+$ ]]; }
+_exp_is_alnum() { [[ $* =~ ^[0-9A-Za-z]+$ ]]; }
+
+# true if arg is (maybe) base64
+_exp_is_b64() { [[ $* =~ ^[0-9A-Za-z+/=]+$ ]]; }
+
 
 # These are used in conjunction with the expect encode/decode proc's defined above to pass literal
 # strings between bash and expect without quoting/whitespace issues.
@@ -110,23 +114,24 @@ exp_close() {
 
 # exp_send [options] [--] [string]
 exp_send() {
-    local opt OPTIND spawnid=$exp_spawnid cmd="" delay="" b64=""
-    while getopts ":b:d:i:" opt; do case $opt in
-        b) b64=$OPTARG ;;
+    local opt OPTIND spawnid=$exp_spawnid cmd="" delay="" b64=0
+    while getopts ":bd:i:" opt; do case $opt in
+        b) b64=1 ;;
         d) delay=$OPTARG; _exp_is_float $delay || _exp_die "invalid delay" ;;
         i) spawnid=$OPTARG ;;
         *) _exp_die "invalid param" ;;
     esac; done
     shift $((OPTIND-1))
-    (($#)) && [[ $b64 ]] && _exp_die "invalid param"
     [[ $delay ]] && cmd="set send_slow {1 $delay}; "
     _exp_is_alnum $spawnid || _exp_die "invalid spawn id"
     [[ $spawnid == "tty" ]] && spawnid="\$tty_spawn_id"
     cmd+="send -i $spawnid"
     [[ $delay ]] && cmd+=" -s"
-    if [[ $b64 ]]; then
-        (($#)) && _exp_die "invalid param"
-        cmd+=" [decode $b64]"
+    cmd+=" --"
+    if ((b64)); then
+        (($#)) || _exp_die "missing base64"
+        _exp_is_b64 "$*" || "invalid base64"
+        cmd+=" [decode $1]"
     elif (($#)); then
         # unescape "\n" etc
         cmd+=" [decode $(printf "%b" "$*" | _exp_encode)]"
