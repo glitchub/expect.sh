@@ -130,7 +130,7 @@ exp_send() {
     cmd+=" --"
     if ((b64)); then
         (($#)) || _exp_die "missing base64"
-        _exp_is_b64 "$*" || "invalid base64"
+        _exp_is_b64 "$*" || _exp_die "invalid base64"
         cmd+=" [decode $1]"
     elif (($#)); then
         # unescape "\n" etc

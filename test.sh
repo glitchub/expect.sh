@@ -50,14 +50,12 @@ if exp_expect -t10 "(?in)^\s*([a-z])\s*$" "(?in)([a-z]).*([a-z])"; then
 else
     exp_send -d.05 "\nToo slow! ($exp_index)\n"
 fi
+exp_expect -i tty -t0 || true
 
 exp_spawn cat -sn
-echo "Send lines to cat -sn, enter BYE when bored..."
+echo "Send lines to cat -sn..."
 while true; do
-    exp_expect -t60 -b -i tty -i $exp_spawnid "(?n)^BYE$" ".+" || die "exp_expect failed $exp_index"
-    echo "Got ${#exp_match[*]} matches of regex #$exp_index from $exp_matchid: ${exp_match[0]}"
-    (($exp_index)) || break
-    [[ $exp_matchid == tty ]] && sendto=$exp_spawnid || sendto=tty
-    exp_send -b ${exp_match[0]} -i $sendto
+    exp_expect -t60 -b -i tty -i $exp_spawnid || break
+    exp_send -i $([[ $exp_matchid == tty ]] && echo $exp_spawnid || echo tty) -b ${exp_match[0]}
 done
 echo Bye!
