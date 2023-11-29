@@ -44,7 +44,7 @@ _exp_read() {
     ((!xs)) || _exp_die "coprocess read error"
 }
 
-# Initialize and start the expect coprocess. Argument 'trace' will write coprocess IN and OUT to
+# Initialize and start the expect coprocess. If EXPECT_SH_TRACE is set, write coprocess IN and OUT to
 # stderr.
 # shellcheck disable=SC2120
 _exp_start() {
@@ -56,7 +56,7 @@ _exp_start() {
     exp_spawnid="tty"
     exp_matchid="tty"
     local out in script
-    if [[ ${1:-} == trace ]]; then
+    if [[ ${EXPECT_SH_TRACE:-} ]]; then
         out='proc out {s} {puts stderr "[clock milliseconds] OUT: $s"; puts $s}'
         in='puts stderr "[clock milliseconds] IN : $line"'
     else
@@ -114,17 +114,19 @@ exp_close() {
 
 # exp_send [options] [--] [string]
 exp_send() {
-    local opt OPTIND spawnid=$exp_spawnid cmd="" delay="" b64=0
-    while getopts ":bd:i:" opt; do case $opt in
+    local opt OPTIND spawnid=$exp_spawnid cmd="" delay="" b64=0 flush=1
+    while getopts ":bd:i:n" opt; do case $opt in
         b) b64=1 ;;
         d) delay=$OPTARG; _exp_is_float $delay || _exp_die "invalid delay" ;;
         i) spawnid=$OPTARG ;;
+        n) flush=0 ;;
         *) _exp_die "invalid param" ;;
     esac; done
     shift $((OPTIND-1))
-    [[ $delay ]] && cmd="set send_slow {1 $delay}; "
     _exp_is_alnum $spawnid || _exp_die "invalid spawn id"
     [[ $spawnid == "tty" ]] && spawnid="\$tty_spawn_id"
+    ((flush)) && cmd+="expect -i $spawnid -timeout 0 -re '.+'; "
+    [[ $delay ]] && cmd+="set send_slow {1 $delay}; "
     cmd+="send -i $spawnid"
     [[ $delay ]] && cmd+=" -s"
     cmd+=" --"
@@ -146,7 +148,7 @@ exp_send() {
 
 # exp_expect [options] [--] [regex [...regex]]
 exp_expect() {
-    local OPTIND opt spawnids=() timeout=2 b64=0
+    local OPTIND opt spawnids=() timeout=2 b64=0 arg index=0 cmd
     while getopts ":bi:t:" opt; do case $opt in
         b) b64=1 ;;
         i) spawnids+=("$OPTARG") ;;
@@ -156,7 +158,7 @@ exp_expect() {
     shift $((OPTIND-1))
     (($#)) || set -- .+
     ((${#spawnids[*]})) || spawnids=("$exp_spawnid")
-    local arg index=0 cmd="expect -i [list"
+    cmd="expect -i [list"
     for arg in "${spawnids[@]}"; do
         _exp_is_alnum "$arg" || _exp_die "invalid spawn id"
         [[ $arg == "tty" ]] && arg="\$tty_spawn_id"
@@ -205,7 +207,7 @@ exp_internal() {
     return $REPLY
 }
 
-# exp_log [options] [file|on]
+# exp_log [options] [file|on|off]
 exp_log() {
     local OPTIND opt append="-noappend"
     while getopts ":a" opt; do case $opt in
@@ -216,7 +218,7 @@ exp_log() {
     local cmd="log_file;"
     case "$*" in
         on) cmd+="log_file -a -leaveopen stderr" ;;
-        "") ;;
+        ""|off) ;;
         *) cmd+="log_file -a $append $*" ;;
     esac
     _exp_write "if [catch {$cmd}] {puts stderr \"exp_log: $::errorInfo\"; out 1} {out 0}"

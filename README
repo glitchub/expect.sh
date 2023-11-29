@@ -69,6 +69,8 @@ EOT
         -d seconds  : delay specified seconds between each character, typically used with a small
         decimal such as "-d 0.05".
 
+        -f          : flush spawned program's output before sending
+
         -i spawnid  : spawnid to send to. Default is to send to $exp_spawnid. Specify "tty" to send
         to the current /dev/tty device monitorch may or may not be attached to bash stdout).
 
@@ -137,17 +139,18 @@ exp_expect [options] [--] [regex [...regex]]
 
 -------------------------------
 
-exp_internal [on]
+exp_internal [on|off]
 
     If "on" is specified, output lots of send/match debug information to stderr, which can be used
-    to figure out why regexes aren't matching. Any other argument disables the output.
+    to figure out why regexes aren't matching. If "off" (or anything else), disable the output.
 
 -------------------------------
 
-exp_log [options] [on|file]
+exp_log [options] [on|off|file]
 
-    If "on" is specified, print output of spawned processes seen by exp_expect to stderr. If a
-    file is specified, print to the file instead. If no argument, logging is disabled.
+    If "on" is specified, print output of spawned processes seen by exp_expect to stderr. If "off"
+    or no argument, logging is disabled. Any other string is treated as a filename, log to that
+    file.
 
     Options:
 
